@@ -7,6 +7,7 @@
 
   outputs = inputs: {
     packages = builtins.mapAttrs (system: pkgs: {
+      default = inputs.self.packages.${system}.keyvalue;
       keyvalue = pkgs.stdenv.mkDerivation {
         name = "KeyValue";
         version = "1.0.0";
@@ -17,7 +18,7 @@
         buildPhase = ''
           export GOPATH=$TMPDIR
           export GOCACHE=$TMPDIR/go-cache
-          go build -o KeyValue ./cmd/server/main.go
+          go build -o KeyValue ./cmd/server
         '';
 
         installPhase = ''
