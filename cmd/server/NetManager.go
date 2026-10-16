@@ -26,7 +26,7 @@ func (netMan NetManagerImpl) Listen() {
 	}
 
 	defer server.Close()
-	fmt.Printf("%s Server Listening On %q", NETWORK_INFO, LISTEN_ADDR)
+	fmt.Printf("%s Server Listening On %q\n", NETWORK_INFO, LISTEN_ADDR)
 	
 	for {
 		conn, err := server.Accept()
@@ -49,9 +49,10 @@ func (netMan NetManagerImpl) handleConnection(conn net.Conn) {
 		return
 	}
 
-	fmt.Printf("%s Received Request %q\n", NETWORK_INFO, string(buf))
+	fmt.Printf("%s Received Request\n", NETWORK_INFO)
 	response := netMan.logicMan.handleRequest(n, buf)
-
+	response = append(response, []byte("\r\n")...)
+	
 	if _, err := conn.Write(response); err != nil {
 		fmt.Printf("%s Write Error: %s\n", NETWORK_ERROR, err.Error())
 		return

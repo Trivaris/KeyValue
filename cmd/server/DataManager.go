@@ -6,7 +6,6 @@ import (
 	"git.trivaris.org/trivaris/keyvalue/cmd/internal/resp"
 )
 
-// Gets the Data
 type DataManager interface {
 	getValue(string) resp.RespItem
 	setValue(string, resp.RespItem)

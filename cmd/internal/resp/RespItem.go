@@ -9,6 +9,8 @@ import (
 const (
 	SERIALIZATION_ERROR string = "[SERIALIZATION ERROR]"
 	DESERIALIZATION_ERROR string = "[DESERIALIZATION ERROR]"
+	SERIALIZATION_INFO string = "[SERIALIZATION INFO]"
+	DESERIALIZATION_INFO string = "[DESERIALIZATION INFO]"
 )
 
 var (
@@ -28,7 +30,9 @@ type RespArray 		struct { Values []RespItem }
 type RespError 		struct { ErrorType string; ErrorMessage string }
 
 func (rNull RespNull) Serialize() []byte {
-	return []byte("$-1\r\n")
+	msg := "$-1\r\n"
+	fmt.Printf("%s Null Serialized: %q\n", SERIALIZATION_INFO, msg)
+	return []byte(msg)
 }
 
 func (rNull RespNull) deserialize(buf []byte, start int) (RespItem, int, error) {
@@ -37,6 +41,7 @@ func (rNull RespNull) deserialize(buf []byte, start int) (RespItem, int, error) 
 
 func (rInt RespInteger) Serialize() []byte {
 	msg := fmt.Sprintf(":%d\r\n", rInt.Value)
+	fmt.Printf("%s Int Serialized: %q\n", SERIALIZATION_INFO, msg)
 	return []byte(msg)
 }
 
@@ -53,15 +58,15 @@ func (rInt RespInteger) deserialize(buf []byte, start int) (RespItem, int, error
 	
 	rInt.Value = int64(n)
 
+	fmt.Printf("%s Int Deserialized: %d", DESERIALIZATION_INFO, rInt.Value)
 	consumed := len(":") + len(raw) + crlfLen
 	return rInt, consumed, nil
 }
 
 func (rString RespString) Serialize() []byte {
-	bytes := []byte(rString.Value)
-	bytes = append(fmt.Appendf(nil, "$%d\r\n", len(bytes)),bytes...)
-	bytes = append(bytes, []byte(crlf)...)
-	return bytes
+	msg := fmt.Sprintf("$%d\r\n%s\r\n", len(rString.Value), rString.Value)
+	fmt.Printf("%s String Serialized: %q\n", SERIALIZATION_INFO, msg)
+	return []byte(msg)
 }
 
 func (rString RespString) deserialize(buf []byte, start int) (RespItem, int, error) {
@@ -88,12 +93,14 @@ func (rString RespString) deserialize(buf []byte, start int) (RespItem, int, err
 
 	rString.Value = string(rest[:stringLength])
 	
+	fmt.Printf("%s String Deserialized: %q\n", DESERIALIZATION_INFO, rString.Value)
 	consumed := len("$") + len(stringLengthRaw) + crlfLen + stringLength + crlfLen
 	return rString, consumed, nil
 }
 
 func (rError RespError) Serialize() []byte {
 	msg := fmt.Sprintf("-%s %s\r\n", rError.ErrorType, rError.ErrorMessage)
+	fmt.Printf("%s Error Serialized: %q\n", SERIALIZATION_INFO, msg)
 	return []byte(msg)
 }
 
@@ -107,6 +114,7 @@ func (rError RespError) deserialize(buf []byte, start int) (RespItem, int, error
 	rError.ErrorType = string(errorTypeRaw)
 	rError.ErrorMessage = string(errorMessageRaw)
 
+	fmt.Printf("%s Error Deserialized: %q %q\n", DESERIALIZATION_INFO, rError.ErrorType, rError.ErrorMessage)
 	consumed := len(errorTypeRaw) + len(" ") + len(errorMessageRaw)
 	return rError, consumed, nil
 }
@@ -117,6 +125,7 @@ func (rArray RespArray) Serialize() []byte {
 	for _, item := range rArray.Values {
 		buf = append(buf, item.Serialize()...)
 	}
+	fmt.Printf("%s Array Serialized: %q\n", SERIALIZATION_INFO, buf)
 	return buf
 }
 
@@ -144,6 +153,7 @@ func (rArray RespArray) deserialize(buf []byte, start int) (RespItem, int, error
 	
 	rArray.Values = values
 
+	fmt.Printf("%s Array Deserialized: %#v\n", DESERIALIZATION_INFO, rArray.Values)
 	consumed := offset - start
 	return rArray, consumed, nil
 }
