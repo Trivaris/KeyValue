@@ -36,6 +36,7 @@
           pkgs.go
           pkgs.gopls
           pkgs.jq
+          pkgs.docker
         ];
 
       shellHook = ''
