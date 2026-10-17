@@ -13,4 +13,4 @@ FROM scratch AS install
 COPY --from=build --chmod=755 /KeyValue /KeyValue
 
 EXPOSE 8080
-CMD [ "/KeyValue" ]
+ENTRYPOINT [ "/KeyValue" ]

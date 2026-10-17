@@ -1,0 +1,23 @@
+networks:
+  kv-net:
+    name: kv-net
+
+services:
+  node1:
+    build: .
+    container_name: node1
+    restart: unless-stopped
+    networks:
+      - kv-net
+    ports:
+      - 8080:8080
+    command: [ "node1" ]
+  node2:
+    build: .
+    container_name: node2
+    restart: unless-stopped
+    networks:
+      - kv-net
+    ports:
+      - 8081:8080
+    command: [ "node2" ]
