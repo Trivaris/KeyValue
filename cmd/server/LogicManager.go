@@ -8,15 +8,11 @@ import (
 const INTERNAL_ERROR = "[INTERNAL ERROR]"
 const INTERNAL_INFO = "[INTERNAL INFO]"
 
-type LogicManager interface {
-	handleRequest(int, []byte) []byte
+type logicManager struct {
+	data *dataManager
 }
 
-type LogicManagerImpl struct {
-	dataMan DataManager
-}
-
-func (logicMan LogicManagerImpl) handleRequest(n int, buf []byte) []byte {
+func (this logicManager) handleRequest(n int, buf []byte) []byte {
 	item, _, err := resp.Deserialize(buf[:n], 0)
 
 	if err != nil {
@@ -51,7 +47,11 @@ func (logicMan LogicManagerImpl) handleRequest(n int, buf []byte) []byte {
 				}
 
 				key := rawKey.Value
-				values[i] = logicMan.dataMan.getValue(key)
+				item, ok = this.data.getValue(key)
+				if !ok {
+					item = resp.RespNull{}
+				}
+				values[i] = item
 			}
 			response := resp.RespArray{Values: values}
 			fmt.Printf("%s GET Request Successfully completed: %#v\n", INTERNAL_INFO, response)
@@ -72,7 +72,7 @@ func (logicMan LogicManagerImpl) handleRequest(n int, buf []byte) []byte {
 			}
 			
 			value := arr.Values[2]
-			logicMan.dataMan.setValue(key.Value, value)
+			this.data.setValue(key.Value, value)
 			fmt.Printf("%s SET Request Successfully completed. Key: %q, Value: %#v\n", INTERNAL_INFO, key, value)
 			return resp.RespString{Value: "Success!"}.Serialize()
 		}

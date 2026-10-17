@@ -1,45 +1,26 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 	"git.trivaris.org/trivaris/keyvalue/cmd/internal/resp"
 )
 
-type DataManager interface {
-	getValue(string) resp.RespItem
-	setValue(string, resp.RespItem)
-}
-
-type DataManagerImpl struct {
+type dataManager struct {
 	values map[string]resp.RespItem
 	mu sync.RWMutex
 }
 
-func (dataMan *DataManagerImpl) getValue(key string) resp.RespItem {
-	dataMan.mu.RLocker().Lock()
-	defer dataMan.mu.RLocker().Unlock()
+func (this *dataManager) getValue(key string) (resp.RespItem, bool) {
+	this.mu.RLocker().Lock()
+	defer this.mu.RLocker().Unlock()
 
-	item, ok := dataMan.values[key]
-	if ok {
-		return item
-	}
-
-	item, ok = getFromBackup(key)
-	if !ok {
-		return resp.RespNull{}
-	}
-	
-	return item
+	item, ok := this.values[key]
+	return item, ok
 }
 
-func (dataMan *DataManagerImpl) setValue(key string, value resp.RespItem) {
-	dataMan.mu.Lock()
-	defer dataMan.mu.Unlock()
+func (this *dataManager) setValue(key string, value resp.RespItem) {
+	this.mu.Lock()
+	defer this.mu.Unlock()
 
-	dataMan.values[key] = value
-}
-
-func getFromBackup(key string) (resp.RespItem, bool) {
-	return resp.RespString{Value: fmt.Sprintf("Got %q from DB!", key)}, true
+	this.values[key] = value
 }

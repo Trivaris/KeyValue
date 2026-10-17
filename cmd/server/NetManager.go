@@ -9,16 +9,11 @@ const NETWORK_INFO string = "[NETWORK INFO]"
 const NETWORK_ERROR string = "[NETWORK ERROR]"
 const LISTEN_ADDR string = "0.0.0.0:8080"
 
-type NetManager interface {
-	Listen()
-	handleConnection(net.Conn)
+type netManager struct {
+	logic logicManager
 }
 
-type NetManagerImpl struct {
-	logicMan LogicManager
-}
-
-func (netMan NetManagerImpl) Listen() {
+func (this netManager) Listen() {
 	server, err := net.Listen("tcp", LISTEN_ADDR)
 	if err != nil {
 		fmt.Println(err)
@@ -35,11 +30,11 @@ func (netMan NetManagerImpl) Listen() {
 			continue
 		}
 
-		go netMan.handleConnection(conn)
+		go this.handleConnection(conn)
 	}
 }
 
-func (netMan NetManagerImpl) handleConnection(conn net.Conn) {
+func (this netManager) handleConnection(conn net.Conn) {
 	defer conn.Close()
 	buf := make([]byte, 1024)
 
@@ -50,7 +45,7 @@ func (netMan NetManagerImpl) handleConnection(conn net.Conn) {
 	}
 
 	fmt.Printf("%s Received Request\n", NETWORK_INFO)
-	response := netMan.logicMan.handleRequest(n, buf)
+	response := this.logic.handleRequest(n, buf)
 	response = append(response, []byte("\r\n")...)
 	
 	if _, err := conn.Write(response); err != nil {

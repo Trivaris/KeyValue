@@ -14,15 +14,16 @@ func main() {
 	defer stop()
 
 	go func() {
-		dataMan 	:= DataManagerImpl{
-			values: map[string]resp.RespItem{
-				"foo":resp.RespString{Value: "bar"},
-				"greeting":resp.RespString{Value: "Hello world!"},
-			},
+		values := map[string]resp.RespItem{
+			"foo":		resp.RespString{Value: "bar"},
+			"greeting":	resp.RespString{Value: "Hello world!"},
 		}
-		logicMan 	:= LogicManagerImpl{ dataMan: &dataMan }
-		netManager 	:= NetManagerImpl{ logicMan: logicMan }
-		netManager.Listen()
+
+		data 	:= dataManager  { values: values }
+		logic 	:= logicManager { data: &data    }
+		net 	:= netManager   { logic: logic   }
+
+		net.Listen()
 	}()
 
 	<-ctx.Done()
