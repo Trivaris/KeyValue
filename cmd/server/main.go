@@ -1,11 +1,12 @@
 package main
 
-import(
+import (
+	"context"
+	"fmt"
 	"os"
 	"os/signal"
-	"fmt"
 	"syscall"
-	"context"
+
 	"git.trivaris.org/trivaris/keyvalue/cmd/internal/resp"
 )
 
@@ -20,25 +21,27 @@ func main() {
 			fmt.Println("No Node Name specified")
 			return
 		}
+
 		NODE_NAME = os.Args[1]
 		values := map[string]resp.RespItem{
-			"foo":		resp.RespString{Value: "bar"},
-			"greeting":	resp.RespString{Value: "Hello world!"},
+			"foo":      resp.RespString{Value: "bar"},
+			"greeting": resp.RespString{Value: "Hello world!"},
 		}
 
-		headNode := &llNode			{ next: nil, id: ConsistentHash(NODE_NAME), shard: nil }
-		headNode.next = headNode
-		sharding := shardingManager { shards: make([]shard, 0), headNode: headNode }
-		data 	 := dataManager     { values: values, sharding: &sharding }
-		logic 	 := logicManager    { data:   &data,  sharding: &sharding }
-		net 	 := netManager      { logic:  &logic }
+		selfShard 	:= &shard		{ name: NODE_NAME }
+		selfNode 	:= &clusterNode	{ id: ConsistentHash(NODE_NAME), shard: selfShard }
 
-		net.listen()
+		cluster 	:= &cluster		{ nodes: []*clusterNode{ selfNode } }
+		data 		:= &store		{ values: values, cluster: cluster }
+		handler 	:= &handler		{ data: data, cluster: cluster }
+		server 		:= &server		{ handler: handler }
+
+		server.listen()
 	}()
 
 	<-ctx.Done()
 	fmt.Println()
-    fmt.Println(context.Cause(ctx))
-    fmt.Println("exiting")
+	fmt.Println(context.Cause(ctx))
+	fmt.Println("exiting")
 
 }

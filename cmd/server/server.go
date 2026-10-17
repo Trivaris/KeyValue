@@ -10,11 +10,11 @@ const NETWORK_ERROR string = "[NETWORK ERROR]"
 const LISTEN_ADDR string = "0.0.0.0"
 const LISTEN_PORT uint16 = 8080
 
-type netManager struct {
-	logic *logicManager
+type server struct {
+	handler *handler
 }
 
-func (this *netManager) listen() {
+func (s *server) listen() {
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", LISTEN_ADDR, LISTEN_PORT))
 	if err != nil {
 		fmt.Println(err)
@@ -29,7 +29,7 @@ func (this *netManager) listen() {
 	defer server.Close()
 
 	fmt.Printf("%s Server Listening On %q on port %d\n", NETWORK_INFO, LISTEN_ADDR, LISTEN_PORT)
-	
+
 	for {
 		conn, err := server.AcceptTCP()
 		if err != nil {
@@ -37,11 +37,11 @@ func (this *netManager) listen() {
 			continue
 		}
 
-		go this.handleConnection(conn)
+		go s.handleConnection(conn)
 	}
 }
 
-func (this *netManager) handleConnection(conn *net.TCPConn) {
+func (s *server) handleConnection(conn *net.TCPConn) {
 	defer conn.Close()
 	buf := make([]byte, 1024)
 
@@ -54,13 +54,12 @@ func (this *netManager) handleConnection(conn *net.TCPConn) {
 
 		fmt.Printf("%s Received Request\n", NETWORK_INFO)
 
-		response, shouldRespond := this.logic.handleRequest(n, buf, conn)
-		if shouldRespond {
-			response = append(response, []byte("\r\n")...)
-			if _, err := conn.Write(response); err != nil {
-				fmt.Printf("%s Write Error: %s\n", NETWORK_ERROR, err.Error())
-				return
-			}
+		response := s.handler.handleRequest(n, buf, conn)
+		response = append(response, []byte("\r\n")...)
+
+		if _, err := conn.Write(response); err != nil {
+			fmt.Printf("%s Write Error: %s\n", NETWORK_ERROR, err.Error())
+			return
 		}
 	}
 }

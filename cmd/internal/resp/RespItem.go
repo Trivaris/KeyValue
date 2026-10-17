@@ -158,6 +158,23 @@ func (rArray RespArray) deserialize(buf []byte, start int) (RespItem, int, error
 	return rArray, consumed, nil
 }
 
+func IsSuccessString(item RespItem) bool {
+	str, ok := item.(RespString)
+	if !ok {
+		fmt.Println(fmt.Errorf("CLOUD SET :: DID NOT RECEIVE STRING"))
+		return false
+	}
+	if str.Value != "Success!" {
+		fmt.Println(fmt.Errorf("CLOUD SET :: DID NOT RECEIVE SUCCESS"))
+		return false
+	}
+	return true
+}
+
+func SuccessString() RespItem {
+	return RespString{Value: "Success!"}
+}
+
 func Deserialize(buf []byte, start int) (RespItem, int, error) {
 	if start >= len(buf) { return nil, 0, fmt.Errorf("Index out of bounds\n") }
 	switch buf[start] {
