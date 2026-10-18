@@ -54,7 +54,7 @@ func (s *server) handleConnection(conn *net.TCPConn) {
 
 		fmt.Printf("%s Received Request\n", NETWORK_INFO)
 
-		response := s.handler.handleRequest(n, buf, conn)
+		response := s.handler.handleRequest(buf[:n], conn)
 		response = append(response, []byte("\r\n")...)
 
 		if _, err := conn.Write(response); err != nil {

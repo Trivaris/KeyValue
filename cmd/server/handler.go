@@ -16,8 +16,8 @@ type handler struct {
 	client *client
 }
 
-func (h *handler) handleRequest(n int, buf []byte, conn *net.TCPConn) []byte {
-	item, _, err := resp.Deserialize(buf[:n], 0)
+func (h *handler) handleRequest(buf []byte, conn *net.TCPConn) []byte {
+	item, _, err := resp.Deserialize(buf, 0)
 
 	if err != nil {
 		fmt.Println(err)
