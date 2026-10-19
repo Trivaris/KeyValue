@@ -56,3 +56,39 @@ Based on the official [Redis Protocol Specification](https://redis.io/docs/lates
 Spin up two independent nodes (`node1` and `node2`) on the same Docker network:
 ```bash
 docker compose up --build
+```
+
+* `node1` listens internally on `node1:8080` (exposed on host port `8080`)
+* `node2` listens internally on `node2:8080` (exposed on host port `8081`)
+
+Connect the two nodes into a cluster using netcat (`nc`):
+
+```bash
+printf "*3\r\n\$9\r\nADDSERVER\r\n\$5\r\nnode1\r\n\$10\r\nnode1:8080\r\n" | nc localhost 8081
+
+```
+
+To build and run a single container manually:
+
+```bash
+docker build . -t keyvalue:latest
+docker run -p 8080:8080 keyvalue:latest
+
+```
+
+### Option 2: Nix
+
+This repository provides a Nix flake:
+
+* **Build:** `nix build` (binary output at `./result/bin/keyvalue`)
+* **Run directly:** `nix run` (or target a specific architecture via `nix run .#packages.<architecture>.keyvalue`)
+
+### Option 3: Go Toolchain
+
+Build and run directly with Go:
+
+```bash
+go build -o keyvalue ./cmd/server/
+./keyvalue <node-name>
+
+```
