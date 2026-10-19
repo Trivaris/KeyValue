@@ -12,7 +12,7 @@ const SHARDING_INFO string = "[SHARDING INFO]"
 
 type cluster struct {
 	nodes []*clusterNode
-	mu      sync.RWMutex
+	mu    sync.RWMutex
 }
 
 type shard struct {
@@ -45,7 +45,7 @@ func (c *cluster) getShardConn(nodeID uint32) (*net.TCPConn, bool) {
 		return c.nodes[i].id == nodeID
 	})
 	if idx >= len(c.nodes) {
-		return nil,false
+		return nil, false
 	}
 	return c.nodes[idx].shard.conn, true
 }
@@ -70,4 +70,3 @@ func ConsistentHash(key string) uint32 {
 	fmt.Printf("%s Calculated id %d from key %q\n", SHARDING_INFO, hash, key)
 	return hash
 }
- 

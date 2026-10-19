@@ -7,46 +7,14 @@
 
   outputs = inputs: {
     packages = builtins.mapAttrs (system: pkgs: {
-      default = inputs.self.packages.${system}.keyvalue;
-      keyvalue = pkgs.stdenv.mkDerivation {
-        name = "KeyValue";
-        version = "1.0.0";
-        src = ./.;
-
-        nativeBuildInputs = [ pkgs.go ];
-
-        buildPhase = ''
-          export GOPATH=$TMPDIR
-          export GOCACHE=$TMPDIR/go-cache
-          go build -o KeyValue ./cmd/server
-        '';
-
-        installPhase = ''
-          mkdir -p $out/bin
-          cp KeyValue $out/bin/KeyValue
-          chmod +x $out/bin/KeyValue
-        '';
-      };
+      default =   inputs.self.packages.${system}.keyvalue;
+      keyvalue =  import ./nix/packages/keyvalue.nix { inherit pkgs; };
+      cli =       import ./nix/packages/cli.nix { inherit pkgs; };
     }) inputs.nixpkgs.legacyPackages;
 
 
     devShells = builtins.mapAttrs (system: pkgs: {
-      keyvalue = pkgs.mkShell {
-        packages = [
-          pkgs.go
-          pkgs.gopls
-          pkgs.jq
-          pkgs.docker
-        ];
-
-      shellHook = ''
-        mkdir -p .vscode
-        [ ! -f .vscode/settings.json ] && echo "{}" > .vscode/settings.json
-        jq '.["go.goroot"] = "${pkgs.go}/share/go"' .vscode/settings.json > .vscode/settings.json
-      '';
-      };
-
-      default = inputs.self.devShells.${system}.keyvalue;
+      default = import ./nix/shell.nix { inherit pkgs; };
     }) inputs.nixpkgs.legacyPackages;
   };
 }
