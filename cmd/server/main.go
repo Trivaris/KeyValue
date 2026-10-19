@@ -7,10 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"git.trivaris.org/trivaris/keyvalue/internal/resp"
+	"git.trivaris.org/trivaris/keyvalue/internal/api"
+	"git.trivaris.org/trivaris/keyvalue/internal/config"
 )
-
-var NODE_NAME string
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -22,21 +21,13 @@ func main() {
 			return
 		}
 
-		NODE_NAME = os.Args[1]
-		values := map[string]resp.RespItem{
-			"foo":      resp.RespString{Value: "bar"},
-			"greeting": resp.RespString{Value: "Hello world!"},
-		}
+		config := config.NewConfig(os.Args[1:])
+		cluster := api.NewCluster(config)
+		store := api.NewStore(cluster)
+		handler := api.NewHandler(store, cluster, config)
+		server := api.NewServer(handler, config)
 
-		selfShard := &shard{name: NODE_NAME}
-		selfNode := &clusterNode{id: ConsistentHash(NODE_NAME), shard: selfShard}
-
-		cluster := &cluster{nodes: []*clusterNode{selfNode}}
-		data := &store{values: values, cluster: cluster}
-		handler := &handler{data: data, cluster: cluster}
-		server := &server{handler: handler}
-
-		server.listen()
+		server.Listen()
 	}()
 
 	<-ctx.Done()

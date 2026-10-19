@@ -2,6 +2,7 @@ FROM golang:1.26 AS build
 
 COPY go.mod /
 COPY cmd /cmd
+COPY internal /internal
 
 # ENV GOPATH=$TMPDIR
 # ENV GOCACHE=$TMPDIR/go-cache
