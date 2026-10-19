@@ -10,6 +10,7 @@
 - [x] Concurrent request handling
 - [x] Custom RESP2 protocol parser
 - [x] Cluster state managed via consistent hashing (Hashring)
+- [x] Dedicated CLI client for sending commands
 
 **Roadmap / To-Do:**
 - [ ] Graceful node departure from the cluster
@@ -17,7 +18,6 @@
 - [ ] Marking cluster as "down" when a node goes offline *(Prioritizing Consistency over Availability / CP model)*
 - [ ] Virtual nodes on the Hashring (groundwork is implemented)
 - [ ] Concurrency optimizations
-- [ ] Dedicated CLI client for sending commands
 
 ---
 
