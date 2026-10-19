@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"net"
 
-	"git.trivaris.org/trivaris/keyvalue/cmd/internal/resp"
+	"git.trivaris.org/trivaris/keyvalue/internal/resp"
 )
 
 const INTERNAL_ERROR = "[INTERNAL ERROR]"
 const INTERNAL_INFO = "[INTERNAL INFO]"
 
 type handler struct {
-	data     *store
+	data    *store
 	cluster *cluster
-	client *client
+	client  *client
 }
 
 func (h *handler) handleRequest(buf []byte, conn *net.TCPConn) []byte {
@@ -39,10 +39,14 @@ func (h *handler) handleRequest(buf []byte, conn *net.TCPConn) []byte {
 	}
 
 	switch command.Value {
-	case "GET": 		return h.handleGet(arr)
-	case "SET": 		return h.handleSet(arr)
-	case "ADDSERVER": 	return h.handleAddServer(arr)
-	case "PING":		return h.handlePing(arr, conn)
+	case "GET":
+		return h.handleGet(arr)
+	case "SET":
+		return h.handleSet(arr)
+	case "ADDSERVER":
+		return h.handleAddServer(arr)
+	case "PING":
+		return h.handlePing(arr, conn)
 	default:
 		{
 			msg := fmt.Sprintf("%s %s Request Not Yet Implemented: %s\n", INTERNAL_ERROR, command.Value, arr.Values)

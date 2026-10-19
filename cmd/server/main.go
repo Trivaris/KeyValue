@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"git.trivaris.org/trivaris/keyvalue/cmd/internal/resp"
+	"git.trivaris.org/trivaris/keyvalue/internal/resp"
 )
 
 var NODE_NAME string
@@ -28,13 +28,13 @@ func main() {
 			"greeting": resp.RespString{Value: "Hello world!"},
 		}
 
-		selfShard 	:= &shard		{ name: NODE_NAME }
-		selfNode 	:= &clusterNode	{ id: ConsistentHash(NODE_NAME), shard: selfShard }
+		selfShard := &shard{name: NODE_NAME}
+		selfNode := &clusterNode{id: ConsistentHash(NODE_NAME), shard: selfShard}
 
-		cluster 	:= &cluster		{ nodes: []*clusterNode{ selfNode } }
-		data 		:= &store		{ values: values, cluster: cluster }
-		handler 	:= &handler		{ data: data, cluster: cluster }
-		server 		:= &server		{ handler: handler }
+		cluster := &cluster{nodes: []*clusterNode{selfNode}}
+		data := &store{values: values, cluster: cluster}
+		handler := &handler{data: data, cluster: cluster}
+		server := &server{handler: handler}
 
 		server.listen()
 	}()

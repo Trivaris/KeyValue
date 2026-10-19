@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"git.trivaris.org/trivaris/keyvalue/cmd/internal/resp"
+	"git.trivaris.org/trivaris/keyvalue/internal/resp"
 )
 
 type client struct {
@@ -14,7 +14,7 @@ func (c *client) sendRequest(request []byte, conn *net.TCPConn) (resp.RespItem, 
 	_, err := conn.Write(request)
 	if err != nil {
 		fmt.Print(err)
-		return nil, fmt.Errorf("Write Error: %s\n", err) 
+		return nil, fmt.Errorf("Write Error: %s\n", err)
 	}
 
 	buf := make([]byte, 1024)

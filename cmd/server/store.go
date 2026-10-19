@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"git.trivaris.org/trivaris/keyvalue/cmd/internal/resp"
+	"git.trivaris.org/trivaris/keyvalue/internal/resp"
 )
 
 const DATA_INFO = "[DATA INFO]"
