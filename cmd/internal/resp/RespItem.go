@@ -15,7 +15,6 @@ const (
 
 var (
 	crlf = []byte("\r\n")
-	crlfLen = len(crlf)
 )
 
 type RespItem interface {
@@ -27,7 +26,7 @@ type RespNull 		struct { }
 type RespInteger 	struct { Value int64 }
 type RespString 	struct { Value string }
 type RespArray 		struct { Values []RespItem }
-type RespError 		struct { ErrorType string; ErrorMessage string }
+type RespError 		struct { ErrorMessage string }
 
 func (rNull RespNull) Serialize() []byte {
 	msg := "$-1\r\n"
@@ -36,7 +35,7 @@ func (rNull RespNull) Serialize() []byte {
 }
 
 func (rNull RespNull) deserialize(buf []byte, start int) (RespItem, int, error) {
-	return nil, 0, fmt.Errorf("%s Should Not Try To Deserialize Null\n", DESERIALIZATION_ERROR)
+	return nil, 0, fmt.Errorf("%s Should Not Try To Deserialize Null, it is handled as a bulk string of len -1\n", DESERIALIZATION_ERROR)
 }
 
 func (rInt RespInteger) Serialize() []byte {
@@ -59,7 +58,7 @@ func (rInt RespInteger) deserialize(buf []byte, start int) (RespItem, int, error
 	rInt.Value = int64(n)
 
 	fmt.Printf("%s Int Deserialized: %d", DESERIALIZATION_INFO, rInt.Value)
-	consumed := len(":") + len(raw) + crlfLen
+	consumed := len(":") + len(raw) + len(crlf)
 	return rInt, consumed, nil
 }
 
@@ -94,28 +93,24 @@ func (rString RespString) deserialize(buf []byte, start int) (RespItem, int, err
 	rString.Value = string(rest[:stringLength])
 	
 	fmt.Printf("%s String Deserialized: %q\n", DESERIALIZATION_INFO, rString.Value)
-	consumed := len("$") + len(stringLengthRaw) + crlfLen + stringLength + crlfLen
+	consumed := len("$") + len(stringLengthRaw) + len(crlf) + stringLength + len(crlf)
 	return rString, consumed, nil
 }
 
 func (rError RespError) Serialize() []byte {
-	msg := fmt.Sprintf("-%s %s\r\n", rError.ErrorType, rError.ErrorMessage)
+	msg := fmt.Sprintf("-%s\r\n", rError.ErrorMessage)
 	fmt.Printf("%s Error Serialized: %q\n", SERIALIZATION_INFO, msg)
 	return []byte(msg)
 }
 
 func (rError RespError) deserialize(buf []byte, start int) (RespItem, int, error) {
-	errorTypeRaw, rest, found := bytes.Cut(buf[start + 1:], []byte(" "))
-	if !found { return nil, 0, fmt.Errorf("%s Could Not Parse Error Type while deserializing Error: %q\n", DESERIALIZATION_ERROR, string(buf[start:])) }
-	
-	errorMessageRaw, _, found := bytes.Cut(rest, crlf)
+	errorMessageRaw, _, found := bytes.Cut(buf[start + 1:], crlf)
 	if !found { return nil, 0, fmt.Errorf("%s Could Not Parse Error Message while deserializing Error: %q\n", DESERIALIZATION_ERROR, string(buf[start:])) }
 
-	rError.ErrorType = string(errorTypeRaw)
 	rError.ErrorMessage = string(errorMessageRaw)
 
-	fmt.Printf("%s Error Deserialized: %q %q\n", DESERIALIZATION_INFO, rError.ErrorType, rError.ErrorMessage)
-	consumed := len(errorTypeRaw) + len(" ") + len(errorMessageRaw)
+	fmt.Printf("%s Error Deserialized: %q\n", DESERIALIZATION_INFO, rError.ErrorMessage)
+	consumed := len("-") + len(errorMessageRaw) + len(crlf)
 	return rError, consumed, nil
 }
 
@@ -141,7 +136,7 @@ func (rArray RespArray) deserialize(buf []byte, start int) (RespItem, int, error
 	}
 
 	values := make([]RespItem, arrLength)
-	offset := start + 1 + len(arrLengthRaw) + crlfLen
+	offset := start + 1 + len(arrLengthRaw) + len(crlf)
 	for i := range(values) {
 		item, consumed, err := Deserialize(buf, offset)
 		if err != nil {
