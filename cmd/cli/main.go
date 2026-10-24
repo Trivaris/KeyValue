@@ -1,118 +1,66 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"os"
 	"strconv"
-	"strings"
 
 	"git.trivaris.org/trivaris/keyvalue/internal/core"
 	"git.trivaris.org/trivaris/keyvalue/internal/core/command"
 	"git.trivaris.org/trivaris/keyvalue/internal/core/serialization"
 )
 
-var (
-	commandType    string                   = "HELP"
-	commandAddress string                   = "localhost"
-	commandPort    uint16                   = 8080
-	commandArgs    []serialization.RespItem = make([]serialization.RespItem, 0)
-)
-
 func main() {
-	skip := 1
-	for i := range len(os.Args) {
-		if skip > 0 {
-			skip--
-			continue
+	commandType := flag.String("type", "GET", "Command Type")
+	commandAddress := flag.String("address", "127.0.0.1", "Target Address")
+	commandPort := flag.Int("port", 6379, "Target Port")
+
+	var commandArgs []serialization.Entity
+
+	flag.Func("rawArg", "Raw Command Arg", func(val string) error {
+		entity, _, err := serialization.Deserialize([]byte(val), 0)
+		if err != nil {
+			return err
 		}
+    	commandArgs = append(commandArgs, entity)
+    	return nil
+	})
 
-		switch os.Args[i] {
-		case "-x":
-			{
-				if len(os.Args) <= i+1 {
-					fmt.Println("No Type specified")
-					return
-				}
-				commandType = os.Args[i+1]
-				skip = 1
-			}
-		case "-a":
-			{
-				if len(os.Args) <= i+1 {
-					fmt.Println("No Address specified")
-					return
-				}
-				if strings.Contains(os.Args[i+1], ":") {
-					fmt.Println("Declare port via -p")
-					return
-				}
-				commandAddress = os.Args[i+1]
-				skip = 1
-			}
-		case "-p":
-			{
-				if len(os.Args) <= i+1 {
-					fmt.Println("No Port specified")
-					return
-				}
-				port, err := strconv.Atoi(os.Args[i+1])
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				commandPort = uint16(port)
-				skip = 1
-			}
-		case "-v":
-			{
-				for j, arg := range os.Args[i+1:] {
-					if strings.HasPrefix(arg, "-") {
-						skip = j
-						break
-					}
+	flag.Func("bulkArg", "Bulk String Arg", func(val string) error {
+    	commandArgs = append(commandArgs, serialization.BulkString{ Value: val })
+    	return nil
+	})
 
-					if arg == "null" {
-						commandArgs = append(commandArgs, serialization.RespNull{})
-						continue
-					}
+	flag.Func("errorArg", "Error Arg", func(val string) error {
+    	commandArgs = append(commandArgs, serialization.Error{ Error: fmt.Errorf(val) })
+    	return nil
+	})
 
-					itemType, itemValue, found := strings.Cut(arg, ":")
-					if !found {
-						commandArgs = append(commandArgs, serialization.RespString{Value: arg})
-						continue
-					}
-
-					switch strings.ToLower(itemType) {
-					case "string":
-						commandArgs = append(commandArgs, serialization.RespString{Value: itemValue})
-					case "int":
-						{
-							num, err := strconv.Atoi(itemValue)
-							if err != nil {
-								fmt.Println(err)
-								return
-							}
-							commandArgs = append(commandArgs, serialization.RespInteger{Value: int64(num)})
-						}
-					default:
-						{
-							commandArgs = append(commandArgs, serialization.RespString{Value: arg})
-						}
-					}
-				}
-			}
+	flag.Func("intArg", "Integer Arg", func(val string) error {
+    	n, err := strconv.Atoi(val)
+		if err != nil {
+			return err
 		}
-	}
+		commandArgs = append(commandArgs, serialization.Integer{ Value: int64(n) })
+    	return nil
+	})
 
-	fmt.Printf("sending %s request to %s:%d, with args %v\n", commandType, commandAddress, commandPort, commandArgs)
+	flag.Func("nullArg", "Null Arg", func(_ string) error {
+    	commandArgs = append(commandArgs, serialization.Null{})
+    	return nil
+	})
 
-	cmd, err := command.Parse(commandType, commandArgs)
+	flag.Parse()
+
+	fmt.Printf("sending %s request to %s:%d, with args %v\n", *commandType, *commandAddress, *commandPort, commandArgs)
+
+	cmd, err := command.Parse(*commandType, commandArgs)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	conn, err := core.CreateConn(fmt.Sprintf("%s:%d", commandAddress, commandPort))
+	conn, err := core.CreateConn(fmt.Sprintf("%s:%d", *commandAddress, *commandPort))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -124,6 +72,6 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(response)
 
+	fmt.Println(response)
 }

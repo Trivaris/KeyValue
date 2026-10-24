@@ -6,15 +6,15 @@ import (
 	"strconv"
 )
 
-type RespInteger struct{ Value int64 }
+type Integer struct{ Value int64 }
 
-func (rInt RespInteger) Serialize() []byte {
-	msg := fmt.Sprintf(":%d%s", rInt.Value, crlf)
+func (i Integer) Serialize() []byte {
+	msg := fmt.Sprintf(":%d%s", i.Value, crlf)
 	fmt.Printf("int serialized: %q\n", msg)
 	return []byte(msg)
 }
 
-func (rInt RespInteger) deserialize(buf []byte, start int) (RespItem, int, error) {
+func (i Integer) deserialize(buf []byte, start int) (Entity, int, error) {
 	raw, _, found := bytes.Cut(buf[start+1:], crlf)
 	if !found {
 		return nil, 0, fmt.Errorf("could not partition while deserializing int: %q", string(buf[start:]))
@@ -25,9 +25,9 @@ func (rInt RespInteger) deserialize(buf []byte, start int) (RespItem, int, error
 		return nil, 0, err
 	}
 
-	rInt.Value = int64(n)
+	i.Value = int64(n)
 
-	fmt.Printf("int deserialized: %d\n", rInt.Value)
+	fmt.Printf("int deserialized: %d\n", i.Value)
 	consumed := len(":") + len(raw) + len(crlf)
-	return rInt, consumed, nil
+	return i, consumed, nil
 }

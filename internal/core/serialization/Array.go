@@ -6,19 +6,19 @@ import (
 	"strconv"
 )
 
-type RespArray struct{ Values []RespItem }
+type Array struct{ Values []Entity }
 
-func (rArray RespArray) Serialize() []byte {
+func (a Array) Serialize() []byte {
 	buf := make([]byte, 0)
-	buf = append(buf, fmt.Appendf(nil, "*%d\r\n", len(rArray.Values))...)
-	for _, item := range rArray.Values {
+	buf = append(buf, fmt.Appendf(nil, "*%d\r\n", len(a.Values))...)
+	for _, item := range a.Values {
 		buf = append(buf, item.Serialize()...)
 	}
 	fmt.Printf("array serialized\n")
 	return buf
 }
 
-func (rArray RespArray) deserialize(buf []byte, start int) (RespItem, int, error) {
+func (a Array) deserialize(buf []byte, start int) (Entity, int, error) {
 	arrLengthRaw, _, found := bytes.Cut(buf[start+1:], crlf)
 	if !found {
 		return nil, 0, fmt.Errorf("could not partition while deserializing array: %q", string(buf[start:]))
@@ -29,7 +29,7 @@ func (rArray RespArray) deserialize(buf []byte, start int) (RespItem, int, error
 		return nil, 0, err
 	}
 
-	values := make([]RespItem, arrLength)
+	values := make([]Entity, arrLength)
 	offset := start + 1 + len(arrLengthRaw) + len(crlf)
 	for i := range values {
 		item, consumed, err := Deserialize(buf, offset)
@@ -40,9 +40,9 @@ func (rArray RespArray) deserialize(buf []byte, start int) (RespItem, int, error
 		values[i] = item
 	}
 
-	rArray.Values = values
+	a.Values = values
 
 	fmt.Printf("array deserialized\n")
 	consumed := offset - start
-	return rArray, consumed, nil
+	return a, consumed, nil
 }

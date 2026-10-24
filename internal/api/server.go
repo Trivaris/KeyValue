@@ -11,10 +11,10 @@ import (
 
 type Server struct {
 	handler *Handler
-	config  *config.Config
+	config  *config.NodeConfig
 }
 
-func NewServer(handler *Handler, config *config.Config) *Server {
+func NewServer(handler *Handler, config *config.NodeConfig) *Server {
 	return &Server{
 		handler: handler,
 		config:  config,
@@ -22,7 +22,7 @@ func NewServer(handler *Handler, config *config.Config) *Server {
 }
 
 func (s *Server) Listen() {
-	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", s.config.ListenAddress, s.config.ListenPort))
+	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", s.config.Myself.Addr.Addr(), s.config.Myself.Addr.Port()))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -35,7 +35,7 @@ func (s *Server) Listen() {
 	}
 	defer func() { _ = server.Close() }()
 
-	fmt.Printf("server listening on %s:%d\n", s.config.ListenAddress, s.config.ListenPort)
+	fmt.Printf("server listening on %s:%d\n", s.config.Myself.Addr.Addr(), s.config.Myself.Addr.Port())
 
 	for {
 		conn, err := server.AcceptTCP()

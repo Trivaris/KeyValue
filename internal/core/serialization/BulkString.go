@@ -6,15 +6,15 @@ import (
 	"strconv"
 )
 
-type RespString struct{ Value string }
+type BulkString struct{ Value string }
 
-func (rString RespString) Serialize() []byte {
-	msg := fmt.Sprintf("$%d%s%s%s", len(rString.Value), crlf, rString.Value, crlf)
+func (b BulkString) Serialize() []byte {
+	msg := fmt.Sprintf("$%d%s%s%s", len(b.Value), crlf, b.Value, crlf)
 	fmt.Printf("string serialized: %q\n", msg)
 	return []byte(msg)
 }
 
-func (rString RespString) deserialize(buf []byte, start int) (RespItem, int, error) {
+func (b BulkString) deserialize(buf []byte, start int) (Entity, int, error) {
 	stringLengthRaw, rest, found := bytes.Cut(buf[start+1:], crlf)
 	if !found {
 		return nil, 0, fmt.Errorf("could not partition while deserializing string: %q", string(buf[start:]))
@@ -30,26 +30,26 @@ func (rString RespString) deserialize(buf []byte, start int) (RespItem, int, err
 
 	switch stringLength {
 	case -1:
-		return RespNull{}, 0, nil
+		return Null{}, 0, nil
 	case 0:
 		{
-			rString.Value = ""
-			return rString, 0, nil
+			b.Value = ""
+			return b, 0, nil
 		}
 	}
 
-	rString.Value = string(rest[:stringLength])
+	b.Value = string(rest[:stringLength])
 
-	fmt.Printf("string deserialized: %q\n", rString.Value)
+	fmt.Printf("string deserialized: %q\n", b.Value)
 	consumed := len("$") + len(stringLengthRaw) + len(crlf) + stringLength + len(crlf)
-	return rString, consumed, nil
+	return b, consumed, nil
 }
 
-func IsSuccessString(item RespItem) bool {
-	str, ok := item.(RespString)
+func IsSuccessString(item Entity) bool {
+	str, ok := item.(BulkString)
 	return ok && str.Value == "Success!"
 }
 
-func SuccessString() RespItem {
-	return RespString{Value: "Success!"}
+func SuccessString() Entity {
+	return BulkString{Value: "Success!"}
 }

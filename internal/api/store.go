@@ -10,18 +10,18 @@ import (
 
 type Store struct {
 	cluster *Cluster
-	values  map[string]serialization.RespItem
+	values  map[string]serialization.Entity
 	mu      sync.RWMutex
 }
 
 func NewStore(cluster *Cluster) *Store {
 	return &Store{
 		cluster: cluster,
-		values:  make(map[string]serialization.RespItem),
+		values:  make(map[string]serialization.Entity),
 	}
 }
 
-func (st *Store) getValue(key string) (serialization.RespItem, bool) {
+func (st *Store) getValue(key string) (serialization.Entity, bool) {
 	id, local := st.cluster.getNodeID(key)
 	if local {
 		fmt.Printf("getting %q from local storage\n", key)
@@ -32,7 +32,7 @@ func (st *Store) getValue(key string) (serialization.RespItem, bool) {
 	}
 }
 
-func (st *Store) setValue(key string, value serialization.RespItem) error {
+func (st *Store) setValue(key string, value serialization.Entity) error {
 	id, local := st.cluster.getNodeID(key)
 	if local {
 		fmt.Printf("setting %q to %#v in local storage\n", key, value)
@@ -44,7 +44,7 @@ func (st *Store) setValue(key string, value serialization.RespItem) error {
 	}
 }
 
-func (st *Store) getLocal(key string) (serialization.RespItem, bool) {
+func (st *Store) getLocal(key string) (serialization.Entity, bool) {
 	st.mu.RLocker().Lock()
 	defer st.mu.RLocker().Unlock()
 
@@ -52,14 +52,14 @@ func (st *Store) getLocal(key string) (serialization.RespItem, bool) {
 	return item, ok
 }
 
-func (st *Store) getFromNode(key string, id uint32) (serialization.RespItem, bool) {
+func (st *Store) getFromNode(key string, id uint32) (serialization.Entity, bool) {
 	conn, ok := st.cluster.getShardConn(id)
 	if !ok {
 		return nil, false
 	}
-	request := serialization.RespArray{Values: []serialization.RespItem{
-		serialization.RespString{Value: "GET"},
-		serialization.RespString{Value: key},
+	request := serialization.Array{Values: []serialization.Entity{
+		serialization.BulkString{Value: "GET"},
+		serialization.BulkString{Value: key},
 	}}.Serialize()
 
 	item, err := core.SendRequest(request, conn)
@@ -67,29 +67,29 @@ func (st *Store) getFromNode(key string, id uint32) (serialization.RespItem, boo
 		return nil, false
 	}
 
-	arr, ok := item.(serialization.RespArray)
+	arr, ok := item.(serialization.Array)
 	if !ok || len(arr.Values) == 0 {
 		return nil, false
 	}
 	return arr.Values[0], true
 }
 
-func (st *Store) setLocal(key string, value serialization.RespItem) {
+func (st *Store) setLocal(key string, value serialization.Entity) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
 	st.values[key] = value
 }
 
-func (st *Store) setOnNode(key string, value serialization.RespItem, id uint32) error {
+func (st *Store) setOnNode(key string, value serialization.Entity, id uint32) error {
 	conn, ok := st.cluster.getShardConn(id)
 	if !ok {
 		return nil
 	}
 
-	request := serialization.RespArray{Values: []serialization.RespItem{
-		serialization.RespString{Value: "SET"},
-		serialization.RespString{Value: key},
+	request := serialization.Array{Values: []serialization.Entity{
+		serialization.BulkString{Value: "SET"},
+		serialization.BulkString{Value: key},
 		value,
 	}}.Serialize()
 

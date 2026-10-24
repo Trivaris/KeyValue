@@ -7,7 +7,7 @@ import (
 	"git.trivaris.org/trivaris/keyvalue/internal/core/serialization"
 )
 
-func SendRequest(request []byte, conn *net.TCPConn) (serialization.RespItem, error) {
+func SendRequest(request []byte, conn *net.TCPConn) (serialization.Entity, error) {
 	_, err := conn.Write(request)
 	if err != nil {
 		fmt.Print(err)

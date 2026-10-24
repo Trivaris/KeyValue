@@ -8,12 +8,12 @@ var (
 	crlf = []byte("\r\n")
 )
 
-type RespItem interface {
+type Entity interface {
 	Serialize() []byte
-	deserialize([]byte, int) (RespItem, int, error)
+	deserialize([]byte, int) (Entity, int, error)
 }
 
-func Deserialize(buf []byte, start int) (RespItem, int, error) {
+func Deserialize(buf []byte, start int) (Entity, int, error) {
 	if start >= len(buf) {
 		return nil, 0, fmt.Errorf("index out of bounds")
 	}
@@ -21,13 +21,13 @@ func Deserialize(buf []byte, start int) (RespItem, int, error) {
 	case '+':
 		return nil, 0, fmt.Errorf("deserialization of simple strings is not supported")
 	case '-':
-		return RespError{}.deserialize(buf, start)
+		return Error{}.deserialize(buf, start)
 	case ':':
-		return RespInteger{}.deserialize(buf, start)
+		return Integer{}.deserialize(buf, start)
 	case '$':
-		return RespString{}.deserialize(buf, start)
+		return BulkString{}.deserialize(buf, start)
 	case '*':
-		return RespArray{}.deserialize(buf, start)
+		return Array{}.deserialize(buf, start)
 	default:
 		return nil, 0, fmt.Errorf("could not determine type of serialized data")
 	}

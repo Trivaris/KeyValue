@@ -11,8 +11,8 @@ import (
 )
 
 type Cluster struct {
-	config *config.Config
-	nodes  []*clusterNode
+	config *config.NodeConfig
+	nodes  []*ringNode
 	mu     sync.RWMutex
 }
 
@@ -21,22 +21,22 @@ type shard struct {
 	name string
 }
 
-type clusterNode struct {
+type ringNode struct {
 	id    uint32
 	shard *shard
 	mu    sync.RWMutex
 }
 
-func NewCluster(config *config.Config) *Cluster {
-	selfShard := &shard{name: config.NodeName}
-	selfNode := &clusterNode{id: ConsistentHash(config.NodeName), shard: selfShard}
+func NewCluster(config *config.NodeConfig) *Cluster {
+	selfShard := &shard{name: string(config.Myself.ID[:])}
+	selfNode := &ringNode{id: ConsistentHash(string(config.Myself.ID[:])), shard: selfShard}
 	return &Cluster{
 		config: config,
-		nodes:  []*clusterNode{selfNode},
+		nodes:  []*ringNode{selfNode},
 	}
 }
 
-func (c *Cluster) getNode(key string) *clusterNode {
+func (c *Cluster) getNode(key string) *ringNode {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -56,7 +56,7 @@ func (c *Cluster) getNodeID(key string) (uint32, bool) {
 	node.mu.RLock()
 	defer node.mu.RUnlock()
 
-	return node.id, node.shard.name == c.config.NodeName
+	return node.id, node.shard.name == string(c.config.Myself.ID[:])
 }
 
 func (c *Cluster) getShardConn(nodeID uint32) (*net.TCPConn, bool) {
@@ -86,7 +86,7 @@ func (c *Cluster) addShardConn(name string, conn *net.TCPConn) {
 
 	id := ConsistentHash(name)
 	shard := &shard{conn: conn, name: name}
-	node := &clusterNode{id: id, shard: shard}
+	node := &ringNode{id: id, shard: shard}
 	c.nodes = append(c.nodes, node)
 }
 
