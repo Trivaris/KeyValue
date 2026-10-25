@@ -2,9 +2,7 @@ package api
 
 import (
 	"fmt"
-	"net"
 
-	"git.trivaris.org/trivaris/keyvalue/internal/config"
 	"git.trivaris.org/trivaris/keyvalue/internal/core"
 	"git.trivaris.org/trivaris/keyvalue/internal/core/command"
 	"git.trivaris.org/trivaris/keyvalue/internal/core/serialization"
@@ -14,19 +12,17 @@ type Handler struct {
 	store   *Store
 	cluster *Cluster
 	log     *TransactionLog
-	config  *config.NodeConfig
 }
 
-func NewHandler(store *Store, cluster *Cluster, log *TransactionLog, config *config.NodeConfig) *Handler {
+func NewHandler(store *Store, cluster *Cluster, log *TransactionLog) *Handler {
 	return &Handler{
 		store:   store,
 		cluster: cluster,
 		log:     log,
-		config:  config,
 	}
 }
 
-func (h *Handler) handleRequest(buf []byte, conn *net.TCPConn) serialization.Entity {
+func (h *Handler) handleRequest(buf []byte) serialization.Entity {
 	item, _, err := serialization.Deserialize(buf, 0)
 
 	if err != nil {
@@ -54,8 +50,6 @@ func (h *Handler) handleRequest(buf []byte, conn *net.TCPConn) serialization.Ent
 		return h.handleSet(c, arr)
 	case command.ClusterMeet:
 		return h.handleClusterMeet(c)
-	case command.Ping:
-		return h.handlePing(c, conn)
 	default:
 		{
 			err := fmt.Errorf("request not yet implemented: %v", arr.Values)
@@ -99,7 +93,7 @@ func (h *Handler) handleClusterMeet(cmd command.ClusterMeet) serialization.Entit
 		return serialization.Error{Error: err}
 	}
 
-	request := command.Ping{Name: string(h.config.Myself.ID[:]), Port: uint16(h.config.Myself.Addr.Port())}
+	request := command.Ping{Name: string(h.cluster.myself.ID[:]), Port: uint16(h.cluster.myself.Addr.Port())}
 
 	item, err := command.Execute(request, dialConn)
 	if err != nil {
@@ -111,26 +105,10 @@ func (h *Handler) handleClusterMeet(cmd command.ClusterMeet) serialization.Entit
 		return serialization.Error{Error: fmt.Errorf("PING Request Unsuccesful")}
 	}
 
-	h.cluster.addShardConn(cmd.Name, dialConn)
-
-	return serialization.SuccessString()
-}
-
-func (h *Handler) handlePing(cmd command.Ping, conn *net.TCPConn) serialization.Entity {
-	tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr)
-	if !ok {
-		err := fmt.Errorf("could not convert to tcp addr")
-		fmt.Println(err)
-		return serialization.Error{Error: err}
-	}
-
-	dialConn, err := core.CreateConn(fmt.Sprintf("%s:%d", tcpAddr.IP, cmd.Port))
-	if err != nil {
-		fmt.Println(err)
-		return serialization.Error{Error: err}
-	}
-
-	h.cluster.addShardConn(cmd.Name, dialConn)
+	// TODO: Fixup, this is not correctly implemented
+	h.cluster.addNode(&Node{
+		OutboundConn: dialConn,
+	})
 
 	return serialization.SuccessString()
 }

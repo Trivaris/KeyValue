@@ -4,12 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/netip"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"git.trivaris.org/trivaris/keyvalue/internal/api"
-	"git.trivaris.org/trivaris/keyvalue/internal/config"
 )
 
 func main() {
@@ -23,8 +23,13 @@ func main() {
 		hostname := flag.String("hostname", "node1", "Hostname")
 		logPath := flag.String("logPath", "./log.txt", "Path to transaction Log File")
 
+		addr, err := netip.ParseAddr(*listenAddress)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
-		config, err := config.NewNodeConfig(*hostname, *listenAddress, uint16(*listenPort), uint16(*cListenPort))
+		cluster, err := api.NewCluster(*hostname, addr, uint16(*listenPort), uint16(*cListenPort))
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -38,17 +43,17 @@ func main() {
 		
 		defer log.Close()
 
-		cluster := api.NewCluster(config)
 		store := api.NewStore(cluster)
-		handler := api.NewHandler(store, cluster, log, config)
-		server := api.NewServer(handler, config)
+		handler := api.NewHandler(store, cluster, log)
+		cbHandler := api.NewClusterBusHandler(store, cluster)
+		server := api.NewServer(handler, cbHandler, addr, uint16(*listenPort), uint16(*cListenPort))
 
 		server.Listen()
+		api.KeepAlive(cluster)
 	}()
 
 	<-ctx.Done()
 	fmt.Println()
 	fmt.Println(context.Cause(ctx))
 	fmt.Println("exiting")
-
 }

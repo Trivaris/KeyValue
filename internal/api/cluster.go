@@ -1,99 +1,164 @@
 package api
 
 import (
-	"fmt"
-	"hash/fnv"
+	"crypto/rand"
+	mrand "math/rand"
 	"net"
+	"net/netip"
+	"slices"
 	"sort"
 	"sync"
-
-	"git.trivaris.org/trivaris/keyvalue/internal/config"
+	"time"
 )
 
+const (
+    FlagMaster uint16 = 1 << iota
+    FlagSlave  uint16 = 1 << iota
+    FlagPfail  uint16 = 1 << iota
+    FlagFail   uint16 = 1 << iota
+    FlagMyself uint16 = 1 << iota
+)
+
+var crc16Table [256]uint16
+
+type NodeID [20]byte
+
 type Cluster struct {
-	config *config.NodeConfig
-	nodes  []*ringNode
+	nodes []*Node
+	myself *Node
 	mu     sync.RWMutex
+	node_timeout time.Duration
 }
 
-type shard struct {
-	conn *net.TCPConn
-	name string
+type Node struct {
+	ID NodeID
+	Addr netip.AddrPort
+	CPort uint16
+	Hostname string
+	Flags uint16
+	MasterID NodeID
+	PingSent int64
+	PongReceived int64
+	ConfigEpoch uint64
+	ReplOffset uint64
+	LinkState bool
+	Slots [2048]byte
+
+	OutboundConn *net.TCPConn
+	InboundConn *net.TCPConn
 }
 
-type ringNode struct {
-	id    uint32
-	shard *shard
-	mu    sync.RWMutex
-}
+func NewCluster(hostname string, address netip.Addr, port uint16, cport uint16) (*Cluster, error) {
+	var id [20]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return nil, err
+	}
 
-func NewCluster(config *config.NodeConfig) *Cluster {
-	selfShard := &shard{name: string(config.Myself.ID[:])}
-	selfNode := &ringNode{id: ConsistentHash(string(config.Myself.ID[:])), shard: selfShard}
+	myself := &Node{
+		ID: id,
+		Addr: netip.AddrPortFrom(address, port),
+		CPort: cport,
+		Hostname: hostname,
+		Flags: FlagMyself | FlagMaster,
+	}
+
+	const poly = 0x1021 // CRC16-CCITT (XMODEM)
+	for i := range 256 {
+		crc := uint16(i) << 8
+		for range 8 {
+			if crc&0x8000 != 0 {
+				crc = (crc << 1) ^ poly
+			} else {
+				crc <<= 1
+			}
+		}
+		crc16Table[i] = crc
+	}
+
 	return &Cluster{
-		config: config,
-		nodes:  []*ringNode{selfNode},
-	}
+		myself: myself,
+	}, nil
 }
 
-func (c *Cluster) getNode(key string) *ringNode {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	keyID := ConsistentHash(key)
-	idx := sort.Search(len(c.nodes), func(i int) bool {
-		return c.nodes[i].id >= keyID
-	})
-	if idx >= len(c.nodes) {
-		return c.nodes[0]
-	}
-	return c.nodes[idx]
-}
-
-func (c *Cluster) getNodeID(key string) (uint32, bool) {
-	node := c.getNode(key)
-
-	node.mu.RLock()
-	defer node.mu.RUnlock()
-
-	return node.id, node.shard.name == string(c.config.Myself.ID[:])
-}
-
-func (c *Cluster) getShardConn(nodeID uint32) (*net.TCPConn, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	idx := sort.Search(len(c.nodes), func(i int) bool {
-		return c.nodes[i].id == nodeID
-	})
-	if idx >= len(c.nodes) {
-		return nil, false
-	}
-
-	node := c.nodes[idx]
-
-	node.mu.RLock()
-	defer node.mu.RUnlock()
-
-	return node.shard.conn, true
-}
-
-func (c *Cluster) addShardConn(name string, conn *net.TCPConn) {
+func (c *Cluster) addNode(node *Node) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	fmt.Printf("adding %s with connection on %s\n", name, conn.RemoteAddr().String())
-
-	id := ConsistentHash(name)
-	shard := &shard{conn: conn, name: name}
-	node := &ringNode{id: id, shard: shard}
 	c.nodes = append(c.nodes, node)
+	return nil
 }
 
-func ConsistentHash(key string) uint32 {
-	h := fnv.New32a()
-	h.Write([]byte(key))
-	hash := h.Sum32()
-	fmt.Printf("calculated id %d from key %q\n", hash, key)
-	return hash
+// func (c *Cluster) getNode(id NodeID) *Node {
+// 	i := sort.Search(len(c.nodes), func(i int) bool {
+// 		return c.nodes[i].ID == id
+// 	})
+// 
+// 	if i >= len(c.nodes) {
+// 		return nil
+// 	}
+// 
+// 	return c.nodes[i]
+// }
+
+func (c *Cluster) getNodeFromSlot(slot uint16) *Node {
+	if slot >= 16384 {
+		return nil
+	}
+
+	byteIndex := slot >> 3
+	bitOffset := slot & 7
+	mask := byte(1 << bitOffset)
+
+	i := sort.Search(len(c.nodes), func(i int) bool {
+		return (c.nodes[i].Slots[byteIndex] & mask) != 0
+	})
+	
+	if i >= len(c.nodes) {
+		return nil
+	}
+
+	return c.nodes[i]
+}
+
+func GetSlot(key string) uint16 {
+	var crc uint16
+	for i := range len(key) {
+		crc = (crc << 8) ^ crc16Table[byte(crc>>8)^key[i]]
+	}
+	return crc & 0x3FFF
+}
+
+func (n *Node) isMyself() bool {
+	return n.Flags & FlagMyself != 0
+}
+
+func (c *Cluster) getRandomStale() *Node {
+	if len(c.nodes) == 0 {
+		return nil
+	}
+
+	var picks [5]*Node
+	for i, _ := range picks {
+		randomIndex := mrand.Intn(len(c.nodes))
+		picks[i] = c.nodes[randomIndex]
+	}
+	
+	slices.SortFunc(picks[:], func(a *Node, b *Node) int {
+		return int(a.PongReceived - b.PongReceived)
+	})
+	
+	return picks[0]
+}
+
+func (c *Cluster) getStalest() *Node {
+	if len(c.nodes) == 0 {
+		return nil
+	}
+
+	sorted := c.nodes
+	slices.SortFunc(sorted, func(a *Node, b *Node) int {
+		return int(a.PongReceived - b.PongReceived)
+	})
+
+	return sorted[0]
 }

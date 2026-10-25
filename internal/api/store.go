@@ -22,25 +22,27 @@ func NewStore(cluster *Cluster) *Store {
 }
 
 func (st *Store) getValue(key string) (serialization.Entity, bool) {
-	id, local := st.cluster.getNodeID(key)
-	if local {
+	slot := GetSlot(key)
+	node := st.cluster.getNodeFromSlot(slot)
+	if node.isMyself() {
 		fmt.Printf("getting %q from local storage\n", key)
 		return st.getLocal(key)
 	} else {
-		fmt.Printf("getting %q from node %d\n", key, id)
-		return st.getFromNode(key, id)
+		fmt.Printf("getting %q from node %d\n", key, node.ID[:])
+		return st.getFromNode(key, node)
 	}
 }
 
 func (st *Store) setValue(key string, value serialization.Entity) error {
-	id, local := st.cluster.getNodeID(key)
-	if local {
+	slot := GetSlot(key)
+	node := st.cluster.getNodeFromSlot(slot)
+	if node.isMyself() {
 		fmt.Printf("setting %q to %#v in local storage\n", key, value)
 		st.setLocal(key, value)
 		return nil
 	} else {
-		fmt.Printf("setting %q to %#v on node %d\n", key, value, id)
-		return st.setOnNode(key, value, id)
+		fmt.Printf("setting %q to %#v on node %d\n", key, value, node.ID[:])
+		return st.setOnNode(key, value, node)
 	}
 }
 
@@ -52,17 +54,13 @@ func (st *Store) getLocal(key string) (serialization.Entity, bool) {
 	return item, ok
 }
 
-func (st *Store) getFromNode(key string, id uint32) (serialization.Entity, bool) {
-	conn, ok := st.cluster.getShardConn(id)
-	if !ok {
-		return nil, false
-	}
+func (st *Store) getFromNode(key string, node *Node) (serialization.Entity, bool) {
 	request := serialization.Array{Values: []serialization.Entity{
 		serialization.BulkString{Value: "GET"},
 		serialization.BulkString{Value: key},
 	}}.Serialize()
 
-	item, err := core.SendRequest(request, conn)
+	item, err := core.SendRequest(request, node.OutboundConn)
 	if err != nil {
 		return nil, false
 	}
@@ -81,24 +79,20 @@ func (st *Store) setLocal(key string, value serialization.Entity) {
 	st.values[key] = value
 }
 
-func (st *Store) setOnNode(key string, value serialization.Entity, id uint32) error {
-	conn, ok := st.cluster.getShardConn(id)
-	if !ok {
-		return nil
-	}
-
+func (st *Store) setOnNode(key string, value serialization.Entity, node *Node) error {
 	request := serialization.Array{Values: []serialization.Entity{
 		serialization.BulkString{Value: "SET"},
 		serialization.BulkString{Value: key},
 		value,
 	}}.Serialize()
 
-	item, err := core.SendRequest(request, conn)
+	item, err := core.SendRequest(request, node.OutboundConn)
 	if err != nil {
 		return err
 	}
+
 	if !serialization.IsSuccessString(item) {
-		return fmt.Errorf("connection unsuccessful")
+		return fmt.Errorf("request unsuccessful")
 	}
 
 	return nil
