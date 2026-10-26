@@ -1,6 +1,8 @@
 # KeyValue
 **A distributed, in-memory key-value database written in Go (inspired by Redis).**
-
+<br>
+**Main branch is unstable, please use the [stable branch](https://github.com/trivaris/keyvalue/tree/stable) for testing**
+<br>
 ![Basic Structure](image.png)
 
 ## Features & Roadmap
